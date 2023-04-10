@@ -15,128 +15,229 @@ namespace Zoo
 
     class Terminal
     {
-        Zoo zoo = new Zoo();
+        private Zoo _zoo;
+
+        public Terminal()
+        {
+            _zoo = new Zoo();
+        }
 
         public void Work()
         {
-            const string GoToEnclosure1Command = "1";
-            const string GoToEnclosure2Command = "2";
-            const string GoToEnclosure3Command = "3";
-            const string GoToEnclosure4Command = "4";
-            const string ExitCommand = "5";
+            bool isWorking = true;
 
-            bool isWork = true;
+            Console.ForegroundColor = ConsoleColor.Yellow;
 
-            while (isWork)
+            while (isWorking)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Добро пожаловать в зоопарк!");
-                Console.WriteLine(new string('=', 40));
-
-                Console.WriteLine($"{GoToEnclosure1Command} - подойти к вольеру 1");
-                Console.WriteLine($"{GoToEnclosure2Command} - подойти к вольеру 2");
-                Console.WriteLine($"{GoToEnclosure3Command} - подойти к вольеру 3");
-                Console.WriteLine($"{GoToEnclosure4Command} - подойти к вольеру 4");
-                Console.WriteLine($"{ExitCommand} - закрыть программу");
-
-                string userInput = Console.ReadLine();
-
-                switch (userInput)
-                {
-                    case GoToEnclosure1Command:
-                        GoToEnclosure1();
-                        break;
-
-                    case GoToEnclosure2Command:
-                        break;
-
-                    case GoToEnclosure3Command:
-                        break;
-
-                    case GoToEnclosure4Command:
-                        break;
-
-                    case ExitCommand:
-                        isWork = false;
-                        break;
-
-                    default:
-                        Console.WriteLine("Вы ввели недопустимую команду");
-                        break;
-                }
-
                 Console.Clear();
+
+                _zoo.ShowInfo();
+
+                Console.Write("\nВведите номер вольера: ");
+
+                if (TryGetNumber(out int index) && index > 0 && index <= _zoo.Enclosures.Count)
+                    GoToEnclosure(--index);
+                else
+                    ShowErrorMessage();
             }
         }
 
-        private void GoToEnclosure1()
+        private bool TryGetNumber(out int index)
         {
-            string animalsInEnclosure1 = "Утки";
+            if (int.TryParse(Console.ReadLine(), out int number))
+            {
+                index = number;
 
-            zoo.ShowInfo(animalsInEnclosure1);
+                return true;
+            }
+            else
+            {
+                index = 0;
+
+                return false;
+            }
+
         }
-    }
 
-    class Zoo
-    {
-        private Dictionary<string, Enclosure> _enclosures = new Dictionary<string, Enclosure>()
+        private void ShowErrorMessage()
         {
-            {"Утки", new Enclosure() }
-        };
+            Console.WriteLine("Вы ввели недопустимую команду");
+            Console.ReadKey();
+        }
 
-        public void ShowInfo(string key)
+        private void GoToEnclosure(int numberOfEnclosure)
         {
-            _enclosures[key].ShowInfo();
+            Console.Clear();
+
+            _zoo.Enclosures[numberOfEnclosure].ShowInfo();
 
             Console.ReadKey();
         }
     }
 
-    class Enclosure
+    class Zoo
     {
+        private List<Enclosure> _enclosures = new List<Enclosure>();
         private List<Animal> _animals = new List<Animal>()
         {
-            new Duck("Утка", "Кря", true),
-            new Duck("Утка", "Кря", false),
-            new Duck("Утка", "Кря", true)
+            { new Duck("Утка", "Кря") },
+            { new Bear("Медведь", "Гррр") },
+            { new Tiger("Тигр", "Рррар") },
+            { new Elefant("Слон", "Трууу") }
         };
 
-        public void ShowInfo()
+        public Zoo()
         {
+            int min = 3;
+            int max = 11;
+
             foreach (Animal animal in _animals)
             {
-                animal.ShowInfo();
+                int numberOfAnimals = HolyRandome.GetNumber(min, max);
+
+                _enclosures.Add(new Enclosure(animal, numberOfAnimals));
             }
         }
 
+        public IReadOnlyList<IEnclosure> Enclosures =>
+            _enclosures;
+
+        public void ShowInfo()
+        {
+            int counter = 1;
+
+            foreach (Enclosure enclosure in _enclosures)
+                Console.WriteLine($"{counter++}) - вольер {enclosure.Label.Name}");
+        }
+    }
+
+    class Enclosure : IEnclosure
+    {
+        private Label _label;
+        private List<Animal> _animals = new List<Animal>();
+
+        public Enclosure(Animal animal, int numberOfAnimals)
+        {
+            _label = new Label(animal.Name);
+
+            for (int i = 0; i < numberOfAnimals; i++)
+                _animals.Add(animal.Clone());
+        }
+
+        public ILable Label =>
+            _label;
+
+        public void ShowInfo()
+        {
+            Console.WriteLine($"В данном вольере содержатся {Label.Name}({_animals.Count})");
+            Console.WriteLine($"{Label.Name} делают <<{_animals[0].Sound}>>\n");
+
+            ShowAnimals();
+        }
+
+        private void ShowAnimals()
+        {
+            for (int i = 0; i < _animals.Count; i++)
+            {
+                int number = i + 1;
+
+
+                Console.WriteLine(_animals[i].GetInfo(number));
+            }
+        }
+    }
+
+    class Label : ILable
+    {
+        public Label(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; private set; }
+    }
+
+    interface IEnclosure
+    {
+        void ShowInfo();
+    }
+
+    interface ILable
+    {
+        string Name { get; }
     }
 
     abstract class Animal
     {
-        protected static int _id;
-        protected string _name;
+        protected bool IsMale;
 
-        protected bool _isMale;
-
-        public Animal(string name, string sound, bool isMale)
+        public Animal(string name, string sound)
         {
-            ++_id;
-            _name = name + _id;
+            Name = name;
             Sound = sound;
-            _isMale = isMale;
+
+            SetRandomSex();
         }
 
-        protected string Sex => _isMale ? "самец" : "самка";
+        protected string Sex =>
+            IsMale ? "самец" : "самка";
         public string Sound { get; protected set; }
+        public string Name { get; protected set; }
 
-        public void ShowInfo()
+        public string GetInfo(int number) =>
+            $"{Name}{number} - пол: {Sex}";
+
+        public abstract Animal Clone();
+
+        protected void SetRandomSex()
         {
-            Console.WriteLine($"{_name} - пол: {Sex}");
+            int index = HolyRandome.GetNumber(2);
+
+            IsMale = Convert.ToBoolean(index);
         }
     }
 
     class Duck : Animal
     {
-        public Duck(string name, string sound, bool isMale) : base(name, sound, isMale) { }
+        public Duck(string name, string sound) : base(name, sound) { }
+
+        public override Animal Clone() =>
+            new Duck(Name, Sound);
+    }
+
+    class Bear : Animal
+    {
+        public Bear(string name, string sound) : base(name, sound) { }
+
+        public override Animal Clone() =>
+            new Bear(Name, Sound);
+    }
+
+    class Tiger : Animal
+    {
+        public Tiger(string name, string sound) : base(name, sound) { }
+
+        public override Animal Clone() =>
+            new Tiger(Name, Sound);
+    }
+
+    class Elefant : Animal
+    {
+        public Elefant(string name, string sound) : base(name, sound) { }
+
+        public override Animal Clone() =>
+             new Elefant(Name, Sound);
+    }
+
+    class HolyRandome
+    {
+        private static Random _random = new Random();
+
+        public static int GetNumber(int minValue, int maxValue) =>
+                    _random.Next(minValue, maxValue);
+
+        public static int GetNumber(int maxValue) =>
+                   _random.Next(maxValue);
     }
 }
